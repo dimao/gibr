@@ -14,6 +14,7 @@ from .create import create
 from .group import GibrGroup
 from .init import init
 from .issues import issues
+from .mr import mr
 
 
 @click.group(cls=GibrGroup)
@@ -31,19 +32,25 @@ def cli(ctx, verbose):
     if ctx.invoked_subcommand == "init":
         logging.debug("Skipping config loading for init command.")
         return
+    
+    # Load config for all commands
     try:
         config = GibrConfig().load()
         ctx.obj["config"] = config
-        ctx.obj["tracker"] = get_tracker(config.config)
     except FileNotFoundError as e:
         warning(str(e))
         click.echo("👉 Run `gibr init` to create a new configuration file.\n")
         if click.confirm("Would you like to run `gibr init` now?", default=True):
             ctx.invoke(init)
         ctx.exit(0)
+    
+    # Load tracker for commands that need it (skip for mr command)
+    if ctx.invoked_subcommand != "mr":
+        ctx.obj["tracker"] = get_tracker(config.config)
 
 
 cli.add_command(create)
 cli.add_command(issues)
 cli.add_command(alias)
 cli.add_command(init)
+cli.add_command(mr)

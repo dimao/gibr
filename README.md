@@ -54,6 +54,7 @@ Run `gibr alias` to set up git alias commands for your conveinence. This essenti
 - [alias](#alias)
 - [issues](#issues)
 - [create](#create)
+- [mr](#mr)
 
 #### init
 `gibr` includes an `init` command to help you create your `.gibrconfig` file. See the following usage example:
@@ -148,6 +149,61 @@ Branch name: FOO-3-subtask-2-1
 ✅  Checked out branch: FOO-3-subtask-2-1
 ✅  Pushed branch 'FOO-3-subtask-2-1' to origin.
 ```
+#### mr
+Create a GitLab merge request for the current branch. This command is designed for GitLab self-hosted instances and supports insecure SSL connections.
+
+```bash
+# Create MR with defaults (pushes branch, targets default branch)
+$ gibr mr
+
+# Create MR with custom target branch and title
+$ gibr mr --target main --title "Add new feature"
+
+# Create MR with description
+$ gibr mr --description "This MR implements feature X"
+
+# Skip pushing (if branch is already on remote)
+$ gibr mr --no-push
+
+# Keep source branch after merge
+$ gibr mr --keep-source
+
+# Explicitly remove source branch after merge (overrides config)
+$ gibr mr --remove-source
+```
+
+##### Configuration
+Add a `[gitlab_mr]` section to your `.gibrconfig`:
+
+```ini
+[gitlab_mr]
+url = https://gitlab.example.com
+# project is optional - will be auto-detected from git remote URL if not specified
+# project = group/project-name
+token = ${GITLAB_TOKEN}
+# Optional: set to true for self-hosted instances with self-signed certificates
+insecure = false
+# Optional: keep source branch after merge (default: false)
+keep_source = false
+```
+
+**Required parameters:**
+- `url` — GitLab instance URL
+- `token` — GitLab personal access token (can use environment variable like `${GITLAB_TOKEN}`)
+
+**Optional parameters:**
+- `project` — Project path (e.g., `group/project-name`). If not specified, will be automatically extracted from the git remote URL (supports SSH, HTTPS, and SSH with port formats)
+- `insecure` — Set to `true` for self-hosted instances with self-signed SSL certificates (default: `false`)
+- `keep_source` — Set to `true` to keep the source branch after merge by default (default: `false`)
+
+**Options:**
+- `--target, -t` — Target branch for the merge request (defaults to project's default branch)
+- `--title` — Title for the merge request (defaults to formatted source branch name)
+- `--description, -d` — Description for the merge request
+- `--no-push` — Skip pushing the branch to remote (use if already pushed)
+- `--keep-source` — Keep source branch after merge
+- `--remove-source` — Remove source branch after merge (overrides config default)
+
 ### Optional flags
 - `--verbose` — enable debug-level logging for a command
 
