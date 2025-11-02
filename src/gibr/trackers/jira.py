@@ -20,11 +20,35 @@ from .base import IssueTracker
 class JiraTracker(IssueTracker):
     """Jira issue tracker."""
 
-    def __init__(self, url: str, user: str, token: str, project_key: str = None):
-        """Construct JiraTracker object."""
+    def __init__(
+        self,
+        url: str,
+        user: str = None,
+        token: str = None,
+        project_key: str = None,
+        auth_type: str = "bearer",
+    ):
+        """Construct JiraTracker object.
+        
+        Args:
+            url: Jira server URL
+            user: Username/email (required for basic auth, optional for bearer)
+            token: API token or Bearer token
+            project_key: Jira project key (optional)
+            auth_type: Authentication type - 'bearer' or 'basic' (default: 'bearer')
+        """
         self.project_key = project_key
         try:
-            self.client = JIRA(server=url, basic_auth=(user, token))
+            if auth_type == "bearer":
+                # Bearer token authentication (OAuth/PAT)
+                self.client = JIRA(server=url, token_auth=token)
+            elif auth_type == "basic":
+                # Basic authentication (username + API token)
+                if not user:
+                    raise ValueError("Username is required for basic authentication")
+                self.client = JIRA(server=url, basic_auth=(user, token))
+            else:
+                raise ValueError(f"Invalid auth_type: {auth_type}. Must be 'bearer' or 'basic'")
         except JIRAError as e:
             raise ValueError(f"Failed to connect to Jira: {e.text}")
 
@@ -55,7 +79,16 @@ class JiraTracker(IssueTracker):
                 "Must start with a letter and contain only A–Z, 0–9, or underscores."
             )
 
-        user = click.prompt("Jira username/email")
+        auth_type = click.prompt(
+            "Authentication type",
+            type=click.Choice(["bearer", "basic"], case_sensitive=False),
+            default="bearer",
+        )
+
+        user = None
+        if auth_type == "basic":
+            user = click.prompt("Jira username/email")
+
         token_var = click.prompt(
             "Environment variable for your Jira token", default="JIRA_TOKEN"
         )
@@ -63,9 +96,12 @@ class JiraTracker(IssueTracker):
 
         config = {
             "url": url,
-            "user": user,
             "token": f"${{{token_var}}}",
+            "auth_type": auth_type,
         }
+
+        if user:
+            config["user"] = user
 
         if project_key:
             config["project_key"] = project_key
@@ -77,20 +113,36 @@ class JiraTracker(IssueTracker):
         """Create JiraTracker from config dictionary."""
         try:
             url = config["url"]
-            user = config["user"]
             token = config["token"]
-            project_key = config.get("project_key", None)
         except KeyError as e:
             raise ValueError(f"Missing key in 'jira' config: {e.args[0]}")
-        return cls(url=url, user=user, token=token, project_key=project_key)
+        
+        # Get optional parameters with defaults
+        auth_type = config.get("auth_type", "bearer")
+        user = config.get("user", None)
+        project_key = config.get("project_key", None)
+        
+        # Validate basic auth requirements
+        if auth_type == "basic" and not user:
+            raise ValueError("'user' is required when auth_type is 'basic'")
+        
+        return cls(
+            url=url,
+            user=user,
+            token=token,
+            project_key=project_key,
+            auth_type=auth_type,
+        )
 
     @classmethod
     def describe_config(cls, config: dict) -> str:
         """Return a string summarizing the JIRA tracker configuration."""
+        auth_type = config.get("auth_type", "bearer")
+        user_info = f"\n        User               : {config.get('user')}" if config.get("user") else ""
         return f"""Jira:
         URL                : {config.get("url")}
+        Auth Type          : {auth_type}{user_info}
         Project Key        : {config.get("project_key")}
-        User               : {config.get("user")}
         Token              : {config.get("token")}"""
 
     def _get_assignee(self, issue):

@@ -8,8 +8,16 @@ from git import GitCommandError, Repo
 from gibr.notify import error, info, success, warning
 
 
-def create_and_push_branch(branch_name: str, repo: Repo | None = None) -> None:
-    """Create a new branch and push it to origin."""
+def create_and_push_branch(
+    branch_name: str, repo: Repo | None = None, auto_push: bool = False
+) -> None:
+    """Create a new branch and optionally push it to origin.
+    
+    Args:
+        branch_name: Name of the branch to create
+        repo: Git repository object (defaults to current directory)
+        auto_push: Whether to automatically push to origin (default: False)
+    """
     try:
         repo = repo or Repo(".")
         if repo.is_dirty(untracked_files=False):
@@ -45,7 +53,7 @@ def create_and_push_branch(branch_name: str, repo: Repo | None = None) -> None:
                     )
                     new_name = f"{branch_name}-{suffix}"
                     info(f"Creating new branch '{new_name}' instead.")
-                    return create_and_push_branch(new_name, repo)
+                    return create_and_push_branch(new_name, repo, auto_push)
                 else:
                     info("Operation canceled by user.")
                     repo.close()
@@ -59,13 +67,17 @@ def create_and_push_branch(branch_name: str, repo: Repo | None = None) -> None:
         new_branch.checkout()
         success(f"Checked out branch: {branch_name}")
 
-        # Push to origin
-        origin = repo.remote(name="origin")
-        push_result = origin.push(
-            refspec=f"{branch_name}:{branch_name}", set_upstream=True
-        )
-        push_result.raise_if_error()
-        success(f"Pushed branch '{branch_name}' to origin.")
+        # Push to origin if auto_push is enabled
+        if auto_push:
+            origin = repo.remote(name="origin")
+            push_result = origin.push(
+                refspec=f"{branch_name}:{branch_name}", set_upstream=True
+            )
+            push_result.raise_if_error()
+            success(f"Pushed branch '{branch_name}' to origin.")
+        else:
+            info(f"Branch '{branch_name}' created locally (not pushed to origin).")
+        
         repo.close()
 
     except GitCommandError as e:

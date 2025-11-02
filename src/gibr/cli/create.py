@@ -18,6 +18,11 @@ def create(ctx, issue_number):
         error(f"Issue number must be numeric for {tracker.display_name} issue tracker.")
 
     issue = tracker.get_issue(issue_number)
+    
+    # Check if translation is enabled in config (default: True)
+    translate_enabled = config.config.get("DEFAULT", {}).get("translate_titles", "true").lower() in ("true", "yes", "1")
+    issue.translate = translate_enabled
+    
     branch_name_format = config.config["DEFAULT"]["branch_name_format"]
 
     # TODO In the future, instead of setting an error here, we should ask if
@@ -31,4 +36,7 @@ def create(ctx, issue_number):
     )
     click.echo(f"Generating branch name for issue #{issue.id}: {issue.title}")
     click.echo(f"Branch name: {branch_name}")
-    create_and_push_branch(branch_name)
+    
+    # Check if auto_push is enabled in config (default: False)
+    auto_push = config.config.get("DEFAULT", {}).get("auto_push", "false").lower() in ("true", "yes", "1")
+    create_and_push_branch(branch_name, auto_push=auto_push)
